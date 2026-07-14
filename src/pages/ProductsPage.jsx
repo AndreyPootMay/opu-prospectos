@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { getProspect, updateProspect } from '../services/db';
 import { uploadToCloudinary } from '../services/cloudinary';
 import { validateProduct, PRODUCT_CATEGORIES, generateUUID } from '../utils/validators';
+import { playSuccess } from '../utils/sounds';
 import ImagePicker from '../components/ImagePicker';
 import ProductCard from '../components/ProductCard';
 import EmptyState from '../components/EmptyState';
@@ -149,9 +150,11 @@ export default function ProductsPage() {
       if (editingId) {
         setProducts(prev => prev.map(p => p.id === editingId ? productData : p));
         toast.success('Producto actualizado');
+        playSuccess();
       } else {
         setProducts(prev => [...prev, productData]);
         toast.success('Producto agregado');
+        playSuccess();
       }
 
       setCurrentProduct(INITIAL_PRODUCT);

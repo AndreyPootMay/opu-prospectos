@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
+import toast from 'react-hot-toast';
 
 const PROMOTER_KEY = 'opu-prospectos-promotor';
 
@@ -21,6 +22,9 @@ export default function Navbar() {
   const handleSavePromotor = () => {
     setPromotor(tempPromotor.trim());
     setEditingPromotor(false);
+    if (tempPromotor.trim()) {
+      toast.success(`Promotor: ${tempPromotor.trim()}`);
+    }
   };
 
   return (
