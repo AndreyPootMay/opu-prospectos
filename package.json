@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/android": "^5.7.8",
     "@capacitor/app": "^5.0.0",
     "@capacitor/camera": "^5.0.0",
     "@capacitor/core": "^5.5.0",
