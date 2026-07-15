@@ -16,8 +16,8 @@ jobs:
       - name: Check commit message
         id: check
         run: |
-          MSG=$(echo "${{ github.event.head_commit.message }}" | tr '[:upper:]' '[:lower:]')
-          if echo "$MSG" | grep -q "release apk"; then
+          MESSAGE="${{ github.event.head_commit.message }}"
+          if echo "$MESSAGE" | grep -iq "release apk"; then
             echo "should_release=true" >> $GITHUB_OUTPUT
           else
             echo "should_release=false" >> $GITHUB_OUTPUT
@@ -35,19 +35,19 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: 'npm'
+          node-version: 22
+          cache: npm
 
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '21'
+          distribution: temurin
+          java-version: 21
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Build for Capacitor
+      - name: Build static export
         env:
           CAPACITOR_BUILD: "true"
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
@@ -56,64 +56,118 @@ jobs:
           VITE_CLOUDINARY_UPLOAD_PRESET: ${{ secrets.VITE_CLOUDINARY_UPLOAD_PRESET }}
         run: npm run build:capacitor
 
-      - name: Add Capacitor Android platform
-        run: |
-          npx cap add android || true
-          npx cap sync android
+      - name: Initialize Android project
+        run: npx cap add android
 
-      - name: Decode keystore
-        run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/opu-prospectos-release.keystore
+      - name: Sync Capacitor
+        run: npx cap sync android
 
-      - name: Resolve version
-        id: version
+      - name: Decode signing keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
-          VERSION=$(node -p "require('./package.json').version")
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "version_code=$((VERSION//./))${{ github.run_number }}" >> $GITHUB_OUTPUT
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "::error::Missing secret ANDROID_KEYSTORE_BASE64"
+            exit 1
+          fi
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/opu-prospectos-release.keystore
+          echo "Keystore written ($(stat -c%s android/app/opu-prospectos-release.keystore) bytes)"
 
-      - name: Patch version in build.gradle
-        working-directory: android
+      - name: Resolve Android version metadata
+        id: android_version
         run: |
-          sed -i "s/versionCode [0-9]*/versionCode ${{ steps.version.outputs.version_code }}/" app/build.gradle
-          sed -i "s/versionName \"[^\"]*\"/versionName \"${{ steps.version.outputs.version }}\"/" app/build.gradle
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          echo "version_name=${PKG_VERSION}" >> $GITHUB_OUTPUT
+          echo "version_code=${{ github.run_number }}" >> $GITHUB_OUTPUT
+
+      - name: Patch versionCode and versionName in build.gradle
+        run: |
+          VERSION_CODE="${{ steps.android_version.outputs.version_code }}"
+          VERSION_NAME="${{ steps.android_version.outputs.version_name }}"
+          sed -i "s/versionCode [0-9]\+/versionCode ${VERSION_CODE}/" android/app/build.gradle
+          sed -i "s/versionName \"[^\"]*\"/versionName \"${VERSION_NAME}\"/" android/app/build.gradle
+          echo "Patched build.gradle:"
+          grep -E "versionCode|versionName" android/app/build.gradle
 
       - name: Build signed APK and AAB
         working-directory: android
         env:
-          ANDROID_KEYSTORE_FILE: opu-prospectos-release.keystore
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: ./gradlew assembleRelease bundleRelease --no-daemon
+        run: |
+          chmod +x gradlew
+          KEYSTORE_PATH="$(pwd)/app/opu-prospectos-release.keystore"
+          ./gradlew assembleRelease bundleRelease --no-daemon \
+            -Pandroid.injected.signing.store.file="$KEYSTORE_PATH" \
+            -Pandroid.injected.signing.store.password="$ANDROID_KEYSTORE_PASSWORD" \
+            -Pandroid.injected.signing.key.alias="$ANDROID_KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$ANDROID_KEY_PASSWORD"
 
-      - name: Verify APK signature
-        run: ${ANDROID_HOME}/build-tools/$(ls ${ANDROID_HOME}/build-tools/ | sort -V | tail -1)/apksigner verify --print-certs android/app/build/outputs/apk/release/app-release.apk
+      - name: Verify signatures
+        run: |
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          AAB=android/app/build/outputs/bundle/release/app-release.aab
+          if [ ! -f "$APK" ]; then
+            echo "::error::APK not found. Build likely failed."; exit 1
+          fi
+          BUILD_TOOLS=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -1)
+          echo "Using $BUILD_TOOLS"
+          "$BUILD_TOOLS/apksigner" verify --print-certs "$APK"
+          jarsigner -verify -verbose "$AAB" | tail -5
 
-      - name: Verify AAB signature
-        run: jarsigner -verify -verbose -certs android/app/build/outputs/bundle/release/app-release.aab
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          DATE=$(date +'%Y%m%d-%H%M%S')
+          echo "tag=v${VERSION}-${DATE}" >> $GITHUB_OUTPUT
+          echo "name=OPU Prospectos v${VERSION}" >> $GITHUB_OUTPUT
 
       - name: Rename artifacts
         run: |
-          DATE=$(date +%Y%m%d)
-          VERSION=${{ steps.version.outputs.version }}
-          mv android/app/build/outputs/apk/release/app-release.apk android/app/build/outputs/apk/release/opu-prospectos-v${VERSION}-${DATE}.apk
-          mv android/app/build/outputs/bundle/release/app-release.aab android/app/build/outputs/bundle/release/opu-prospectos-v${VERSION}-${DATE}.aab
+          TAG="${{ steps.version.outputs.tag }}"
+          cp android/app/build/outputs/apk/release/app-release.apk    "opu-prospectos-${TAG}.apk"
+          cp android/app/build/outputs/bundle/release/app-release.aab "opu-prospectos-${TAG}.aab"
 
       - name: Create GitHub Release
+        id: release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.version.outputs.version }}
-          name: v${{ steps.version.outputs.version }}
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.name }}
+          body: |
+            ## OPU Prospectos — Release firmado
+
+            **Commit:** ${{ github.sha }}
+            **Branch:** ${{ github.ref_name }}
+            **Build:** ${{ steps.version.outputs.tag }}
+
+            ### Artefactos
+            - **APK firmado** (`*.apk`) — instalacion manual / sideload.
+            - **AAB firmado** (`*.aab`) — para subir a Google Play Console.
           files: |
-            android/app/build/outputs/apk/release/opu-prospectos-v${{ steps.version.outputs.version }}-${{ github.run_number }}.apk
-            android/app/build/outputs/bundle/release/opu-prospectos-v${{ steps.version.outputs.version }}-${{ github.run_number }}.aab
+            opu-prospectos-${{ steps.version.outputs.tag }}.apk
+            opu-prospectos-${{ steps.version.outputs.tag }}.aab
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Print download links
         run: |
-          echo "## OPU Prospectos v${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          TAG="${{ steps.version.outputs.tag }}"
+          REPO="${{ github.repository }}"
+          APK_URL="https://github.com/${REPO}/releases/download/${TAG}/opu-prospectos-${TAG}.apk"
+          AAB_URL="https://github.com/${REPO}/releases/download/${TAG}/opu-prospectos-${TAG}.aab"
+          RELEASE_URL="${{ steps.release.outputs.url }}"
+          echo "### Download links" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **APK**: [Descargar](https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.version }}/opu-prospectos-v${{ steps.version.outputs.version }}-${{ github.run_number }}.apk)" >> $GITHUB_STEP_SUMMARY
-          echo "- **AAB**: [Descargar](https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.version }}/opu-prospectos-v${{ steps.version.outputs.version }}-${{ github.run_number }}.aab)" >> $GITHUB_STEP_SUMMARY
+          echo "| Archivo | Link |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|------|" >> $GITHUB_STEP_SUMMARY
+          echo "| APK (sideload) | [opu-prospectos-${TAG}.apk](${APK_URL}) |" >> $GITHUB_STEP_SUMMARY
+          echo "| AAB (Google Play) | [opu-prospectos-${TAG}.aab](${AAB_URL}) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Release page | [${TAG}](${RELEASE_URL}) |" >> $GITHUB_STEP_SUMMARY
+          echo ""
+          echo "APK: ${APK_URL}"
+          echo "AAB: ${AAB_URL}"
+          echo "Release: ${RELEASE_URL}"
