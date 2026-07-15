@@ -6,9 +6,9 @@ import App from './App';
 import './index.css';
 
 if (Capacitor.isNativePlatform()) {
-  StatusBar.setOverlaysWebView({ overlay: true });
+  StatusBar.setOverlaysWebView({ overlay: false });
   StatusBar.setStyle({ style: Style.Dark });
-  StatusBar.setBackgroundColor({ color: '#00000000' });
+  StatusBar.setBackgroundColor({ color: '#ec4899' });
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(

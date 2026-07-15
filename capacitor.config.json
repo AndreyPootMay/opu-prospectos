@@ -13,9 +13,9 @@
       "enabled": true
     },
     "StatusBar": {
-      "overlaysWebView": true,
+      "overlaysWebView": false,
       "style": "DARK",
-      "backgroundColor": "#00000000"
+      "backgroundColor": "#ec4899"
     },
     "Camera": {
       "permissions": ["camera", "photos"]
