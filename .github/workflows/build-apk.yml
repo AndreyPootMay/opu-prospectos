@@ -1,4 +1,4 @@
-name: Release APK & AAB
+name: Release APK and AAB
 
 on:
   push:
@@ -27,7 +27,7 @@ jobs:
     needs: check-release
     if: needs.check-release.outputs.should_release == 'true'
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -37,7 +37,6 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
-          cache-dependency-path: opu-prospectos/package-lock.json
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -46,13 +45,11 @@ jobs:
           java-version: '21'
 
       - name: Install dependencies
-        working-directory: opu-prospectos
         run: npm ci
 
       - name: Build for Capacitor
-        working-directory: opu-prospectos
         env:
-          CAPACITOR_BUILD: 'true'
+          CAPACITOR_BUILD: "true"
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
           VITE_CLOUDINARY_URL: ${{ secrets.VITE_CLOUDINARY_URL }}
           VITE_CLOUDINARY_CLOUD_NAME: ${{ secrets.VITE_CLOUDINARY_CLOUD_NAME }}
@@ -60,30 +57,28 @@ jobs:
         run: npm run build:capacitor
 
       - name: Add Capacitor Android platform
-        working-directory: opu-prospectos
         run: |
           npx cap add android || true
           npx cap sync android
 
       - name: Decode keystore
-        run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > opu-prospectos/android/app/opu-prospectos-release.keystore
+        run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/opu-prospectos-release.keystore
 
       - name: Resolve version
         id: version
-        working-directory: opu-prospectos
         run: |
           VERSION=$(node -p "require('./package.json').version")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "version_code=$((VERSION//./))${{ github.run_number }}" >> $GITHUB_OUTPUT
 
       - name: Patch version in build.gradle
-        working-directory: opu-prospectos/android
+        working-directory: android
         run: |
           sed -i "s/versionCode [0-9]*/versionCode ${{ steps.version.outputs.version_code }}/" app/build.gradle
           sed -i "s/versionName \"[^\"]*\"/versionName \"${{ steps.version.outputs.version }}\"/" app/build.gradle
 
       - name: Build signed APK and AAB
-        working-directory: opu-prospectos/android
+        working-directory: android
         env:
           ANDROID_KEYSTORE_FILE: opu-prospectos-release.keystore
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -92,15 +87,12 @@ jobs:
         run: ./gradlew assembleRelease bundleRelease --no-daemon
 
       - name: Verify APK signature
-        run: |
-          ${ANDROID_HOME}/build-tools/$(ls ${ANDROID_HOME}/build-tools/ | sort -V | tail -1)/apksigner verify --print-certs opu-prospectos/android/app/build/outputs/apk/release/app-release.apk
+        run: ${ANDROID_HOME}/build-tools/$(ls ${ANDROID_HOME}/build-tools/ | sort -V | tail -1)/apksigner verify --print-certs android/app/build/outputs/apk/release/app-release.apk
 
       - name: Verify AAB signature
-        run: |
-          jarsigner -verify -verbose -certs opu-prospectos/android/app/build/outputs/bundle/release/app-release.aab
+        run: jarsigner -verify -verbose -certs android/app/build/outputs/bundle/release/app-release.aab
 
       - name: Rename artifacts
-        working-directory: opu-prospectos
         run: |
           DATE=$(date +%Y%m%d)
           VERSION=${{ steps.version.outputs.version }}
@@ -113,8 +105,8 @@ jobs:
           tag_name: v${{ steps.version.outputs.version }}
           name: v${{ steps.version.outputs.version }}
           files: |
-            opu-prospectos/android/app/build/outputs/apk/release/opu-prospectos-v${{ steps.version.outputs.version }}-${{ github.run_number }}.apk
-            opu-prospectos/android/app/build/outputs/bundle/release/opu-prospectos-v${{ steps.version.outputs.version }}-${{ github.run_number }}.aab
+            android/app/build/outputs/apk/release/opu-prospectos-v${{ steps.version.outputs.version }}-${{ github.run_number }}.apk
+            android/app/build/outputs/bundle/release/opu-prospectos-v${{ steps.version.outputs.version }}-${{ github.run_number }}.aab
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
