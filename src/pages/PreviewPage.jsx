@@ -78,7 +78,24 @@ export default function PreviewPage() {
     } catch (error) {
       console.error('Error submitting:', error);
       playError();
-      toast.error('Error al enviar. Intenta de nuevo.');
+
+      const apiMessage = error.response?.data?.message || 'Error al enviar. Intenta de nuevo.';
+      const apiDetail = error.response?.data?.detail || error.message || '';
+
+      toast.error(
+        <div
+          onClick={() => {
+            navigator.clipboard.writeText(apiDetail || apiMessage);
+            toast.success('Error copiado al portapapeles', { duration: 2000 });
+          }}
+          style={{ cursor: 'pointer' }}
+        >
+          <p style={{ fontWeight: 600, margin: 0 }}>{apiMessage}</p>
+          {apiDetail && <p style={{ fontSize: '0.7rem', opacity: 0.75, marginTop: 4 }}>{apiDetail}</p>}
+          <p style={{ fontSize: '0.65rem', opacity: 0.5, marginTop: 4 }}>Toca para copiar el error</p>
+        </div>,
+        { duration: 10000 }
+      );
     } finally {
       setSubmitting(false);
     }

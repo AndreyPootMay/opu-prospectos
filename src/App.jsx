@@ -59,6 +59,8 @@ function App() {
             background: '#1a1a2e',
             color: '#fff',
             borderRadius: '12px',
+            maxWidth: '420px',
+            padding: '12px 16px',
           },
           success: {
             duration: 3000,
@@ -69,6 +71,13 @@ function App() {
           },
           error: {
             duration: 7000,
+            style: {
+              background: '#7f1d1d',
+              color: '#fff',
+              borderRadius: '12px',
+              maxWidth: '420px',
+              padding: '12px 16px',
+            },
           },
         }}
       />
