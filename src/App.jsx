@@ -7,6 +7,7 @@ import ProductsPage from './pages/ProductsPage';
 import PreviewPage from './pages/PreviewPage';
 import SubmittedPage from './pages/SubmittedPage';
 import Navbar from './components/Navbar';
+import PermissionsGate from './components/PermissionsGate';
 
 const STORAGE_KEY = 'opu-prospectos-last-route';
 
@@ -48,6 +49,7 @@ function RoutePersistence() {
 function App() {
   return (
     <Router>
+      <PermissionsGate />
       <RoutePersistence />
       <Toaster 
         position="top-center"
