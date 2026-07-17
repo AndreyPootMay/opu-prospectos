@@ -13,9 +13,14 @@ export function useGeolocation() {
 
     try {
       if (Capacitor.isNativePlatform()) {
-        const permission = await Geolocation.requestPermissions({ permissions: ['location'] });
+        let permission = await Geolocation.checkPermissions();
+
+        if (permission.location === 'prompt' || permission.location === 'prompt-with-rationale') {
+          permission = await Geolocation.requestPermissions();
+        }
+
         if (permission.location !== 'granted') {
-          throw new Error('Permiso de ubicación denegado');
+          throw new Error('Permiso de ubicación denegado. Actívalo en Configuración.');
         }
 
         const pos = await Geolocation.getCurrentPosition({
@@ -31,7 +36,7 @@ export function useGeolocation() {
         });
       } else {
         if (!navigator.geolocation) {
-          throw new Error('Geolocalización no soportada');
+          throw new Error('Geolocalización no soportada en este navegador');
         }
 
         const pos = await new Promise((resolve, reject) => {
@@ -49,7 +54,9 @@ export function useGeolocation() {
         });
       }
     } catch (err) {
-      setError(err.message || 'Error al obtener ubicación');
+      const message = err.message || 'Error al obtener ubicación';
+      setError(message);
+      throw new Error(message);
     } finally {
       setLoading(false);
     }

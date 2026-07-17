@@ -49,7 +49,6 @@ export default function StoreFormPage() {
         latitude: location.latitude.toString(),
         longitude: location.longitude.toString(),
       }));
-      toast.success('Ubicación obtenida');
     }
   }, [location]);
 
@@ -76,13 +75,21 @@ export default function StoreFormPage() {
   };
 
   const handlePhoto = async () => {
-    const file = await takePhoto();
-    if (file) setLogoFile(file);
+    try {
+      const file = await takePhoto();
+      if (file) setLogoFile(file);
+    } catch (err) {
+      toast.error(err.message || 'Error al capturar foto');
+    }
   };
 
   const handleGallery = async () => {
-    const file = await pickFromGallery();
-    if (file) setLogoFile(file);
+    try {
+      const file = await pickFromGallery();
+      if (file) setLogoFile(file);
+    } catch (err) {
+      toast.error(err.message || 'Error al seleccionar foto');
+    }
   };
 
   const handleClearPhoto = () => {
@@ -92,13 +99,21 @@ export default function StoreFormPage() {
   };
 
   const handleFacadeCapture = async () => {
-    const file = await takeFacadePhoto();
-    if (file) setFacadeFile(file);
+    try {
+      const file = await takeFacadePhoto();
+      if (file) setFacadeFile(file);
+    } catch (err) {
+      toast.error(err.message || 'Error al capturar foto');
+    }
   };
 
   const handleFacadeGallery = async () => {
-    const file = await pickFacadeGallery();
-    if (file) setFacadeFile(file);
+    try {
+      const file = await pickFacadeGallery();
+      if (file) setFacadeFile(file);
+    } catch (err) {
+      toast.error(err.message || 'Error al seleccionar foto');
+    }
   };
 
   const handleClearFacade = () => {
@@ -229,7 +244,9 @@ export default function StoreFormPage() {
               className={`input-field ${errors.email ? 'border-red-400' : ''}`}
               placeholder="correo@ejemplo.com"
               value={store.email}
-              onChange={(e) => handleChange('email', e.target.value)}
+              inputMode="email"
+              autoComplete="email"
+              onChange={(e) => handleChange('email', e.target.value.toLowerCase().replace(/\s/g, ''))}
             />
             {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
           </div>
@@ -314,7 +331,14 @@ export default function StoreFormPage() {
             <div className="flex items-center gap-3">
               <button
                 type="button"
-                onClick={getCurrentPosition}
+                onClick={async () => {
+                  try {
+                    await getCurrentPosition();
+                    toast.success('Ubicación obtenida');
+                  } catch (err) {
+                    toast.error(err.message || 'Error al obtener ubicación');
+                  }
+                }}
                 disabled={geoLoading}
                 className="flex items-center gap-2 px-4 py-2 opu-gradient text-white rounded-lg text-sm font-medium disabled:opacity-50 press-effect"
               >
