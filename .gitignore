@@ -1,5 +1,10 @@
 node_modules/
 dist/
 out/
-/android/
 .env.local
+
+# Android build artifacts (not source)
+android/.gradle/
+android/app/build/
+android/build/
+android/capacitor-cordova-android-plugins/build/
