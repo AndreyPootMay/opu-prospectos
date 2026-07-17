@@ -31,8 +31,8 @@ export default function PermissionsGate() {
   async function requestLocationPermissions() {
     try {
       let permission = await Geolocation.checkPermissions();
-      if (permission.location === 'granted') return;
-      permission = await Geolocation.requestPermissions();
+      if (permission.location === 'granted' && permission.coarseLocation === 'granted') return;
+      permission = await Geolocation.requestPermissions({ permissions: ['location', 'coarseLocation'] });
     } catch (err) {
       console.warn('PermissionsGate: location error', err);
     }
