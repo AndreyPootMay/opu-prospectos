@@ -57,7 +57,12 @@ jobs:
         run: npm run build:capacitor
 
       - name: Initialize Android project
-        run: npx cap add android
+        run: |
+          if [ ! -d "android/app" ]; then
+            npx cap add android
+          else
+            echo "Android platform already exists, skipping add."
+          fi
 
       - name: Sync Capacitor
         run: npx cap sync android
