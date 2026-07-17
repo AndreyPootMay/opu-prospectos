@@ -54,17 +54,21 @@ function App() {
       <Toaster 
         position="top-center"
         toastOptions={{
-          duration: 3000,
+          duration: 7000,
           style: {
             background: '#1a1a2e',
             color: '#fff',
             borderRadius: '12px',
           },
           success: {
+            duration: 3000,
             iconTheme: {
               primary: '#ec4899',
               secondary: '#fff',
             },
+          },
+          error: {
+            duration: 7000,
           },
         }}
       />

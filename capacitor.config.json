@@ -18,7 +18,7 @@
       "backgroundColor": "#ec4899"
     },
     "Camera": {
-      "permissions": ["camera", "photos"]
+      "permissions": ["camera", "photos", "readMediaImages"]
     },
     "Geolocation": {
       "permissions": ["location"]

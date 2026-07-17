@@ -15,12 +15,16 @@ export function useGeolocation() {
       if (Capacitor.isNativePlatform()) {
         let permission = await Geolocation.checkPermissions();
 
-        if (permission.location === 'prompt' || permission.location === 'prompt-with-rationale') {
-          permission = await Geolocation.requestPermissions();
+        if (permission.location !== 'granted') {
+          try {
+            permission = await Geolocation.requestPermissions();
+          } catch (permErr) {
+            console.warn('Geolocation requestPermissions failed:', permErr);
+          }
         }
 
         if (permission.location !== 'granted') {
-          throw new Error('Permiso de ubicación denegado. Actívalo en Configuración.');
+          throw new Error('Permiso de ubicación denegado. Ve a Configuración > Apps > OPU Prospectos > Permisos y habilita la ubicación.');
         }
 
         const pos = await Geolocation.getCurrentPosition({

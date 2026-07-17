@@ -16,7 +16,7 @@ export function useCamera() {
         if (Capacitor.isNativePlatform()) {
           let permission = await Camera.checkPermissions();
 
-          if (permission.camera === 'prompt' || permission.camera === 'prompt-with-rationale') {
+          if (permission.camera !== 'granted' || (permission.photos !== 'granted' && permission.readMediaImages !== 'granted')) {
             permission = await Camera.requestPermissions();
           }
 
@@ -73,11 +73,11 @@ export function useCamera() {
         if (Capacitor.isNativePlatform()) {
           let permission = await Camera.checkPermissions();
 
-          if (permission.photos === 'prompt' || permission.photos === 'prompt-with-rationale') {
+          if (permission.photos !== 'granted' && permission.readMediaImages !== 'granted') {
             permission = await Camera.requestPermissions();
           }
 
-          if (permission.photos !== 'granted') {
+          if (permission.photos !== 'granted' && permission.readMediaImages !== 'granted') {
             throw new Error('Permiso de galería denegado. Actívalo en Configuración.');
           }
 
